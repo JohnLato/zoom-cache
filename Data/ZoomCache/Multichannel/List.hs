@@ -184,7 +184,8 @@ wholeTrackSummaryListDouble :: (Functor m, MonadIO m)
 wholeTrackSummaryListDouble trackNo =
     I.joinI $ filterTracks [trackNo] .  I.joinI . e $ I.last
     where
-        e = I.joinI . enumSummaries . I.mapChunks (catMaybes . map toSLD)
+        e = I.group 32 I.><> I.mapChunks concat
+            I.><> enumSummaries I.><> I.mapChunks (catMaybes . map toSLD)
         toSLD :: ZoomSummary -> Maybe [Summary Double]
         toSLD (ZoomSummary s) = toSummaryListDouble s
 
