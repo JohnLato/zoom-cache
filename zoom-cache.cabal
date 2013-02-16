@@ -93,6 +93,7 @@ Library
     transformers              >= 0.2     && < 0.4,
     type-level,
     unix,
+    vector-space,
     zlib
 
   Exposed-modules:
@@ -154,6 +155,7 @@ Executable zoom-cache
     type-level,
     ui-command,
     unix,
+    vector-space,
     zlib
 
 Test-suite tests
@@ -171,6 +173,7 @@ Test-suite tests
     transformers               >= 0.2     && < 0.4,
     type-level,
     unix,
+    vector-space,
     zoom-cache
 
 ------------------------------------------------------------------------

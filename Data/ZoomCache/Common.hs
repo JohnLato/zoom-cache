@@ -1,4 +1,5 @@
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# OPTIONS -Wall #-}
 ----------------------------------------------------------------------
 -- |
@@ -39,6 +40,7 @@ module Data.ZoomCache.Common (
     , Version(..)
 ) where
 
+import Data.AffineSpace
 import Data.Int
 import Data.Ratio
 import Data.Time.Clock (UTCTime, addUTCTime, diffUTCTime)
@@ -77,6 +79,11 @@ newtype TimeStamp = TS Double
     deriving (Eq, Ord, Show)
 
 newtype TimeStampDiff = TSDiff Double
+
+instance AffineSpace TimeStamp where
+    type Diff TimeStamp = Double
+    TS l .-. TS r = l .-. r
+    TS t .+^ d = TS (t .+^ d)
 
 -- | @timeStampDiff (TS t1) (TS t2) = TSDiff (t1 - t2)@
 timeStampDiff :: TimeStamp -> TimeStamp -> TimeStampDiff
