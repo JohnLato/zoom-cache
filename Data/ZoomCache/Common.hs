@@ -40,10 +40,12 @@ module Data.ZoomCache.Common (
     , Version(..)
 ) where
 
+import Data.AdditiveGroup
 import Data.AffineSpace
 import Data.Int
 import Data.Ratio
 import Data.Time.Clock (UTCTime, addUTCTime, diffUTCTime)
+import Data.VectorSpace
 
 ------------------------------------------------------------
 
@@ -84,6 +86,18 @@ instance AffineSpace TimeStamp where
     type Diff TimeStamp = Double
     TS l .-. TS r = l .-. r
     TS t .+^ d = TS (t .+^ d)
+
+instance AdditiveGroup TimeStamp where
+    zeroV = TS zeroV
+    TS l ^+^ TS r = TS (l ^+^ r)
+    negateV (TS t) = TS (negateV t)
+
+instance VectorSpace TimeStamp where
+    type Scalar TimeStamp = Double
+    d *^ (TS t) = TS (d*t)
+
+instance InnerSpace TimeStamp where
+    TS l <.> TS r = l <.> r
 
 -- | @timeStampDiff (TS t1) (TS t2) = TSDiff (t1 - t2)@
 timeStampDiff :: TimeStamp -> TimeStamp -> TimeStampDiff
