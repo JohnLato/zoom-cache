@@ -52,7 +52,7 @@ import Data.ZoomCache.Types
 ----------------------------------------------------------------------
 
 -- | Read 1 byte as a signed Integral
-readInt8 :: (I.Nullable s, LL.ListLike s Word8, Functor m, Monad m, Integral a)
+readInt8 :: (LL.ListLike s Word8, Functor m, Monad m, Integral a)
          => Iteratee s m a
 readInt8 = fromIntegral . u8_to_s8 <$> I.head
     where
@@ -61,7 +61,7 @@ readInt8 = fromIntegral . u8_to_s8 <$> I.head
 {-# INLINE readInt8 #-}
 
 -- | Read 2 bytes as a big-endian signed Integral
-readInt16be :: (I.Nullable s, LL.ListLike s Word8, Functor m, Monad m, Integral a)
+readInt16be :: (LL.ListLike s Word8, Functor m, Monad m, Integral a)
             => Iteratee s m a
 readInt16be = fromIntegral . u16_to_s16 <$> I.endianRead2 I.MSB
     where
@@ -70,7 +70,7 @@ readInt16be = fromIntegral . u16_to_s16 <$> I.endianRead2 I.MSB
 {-# INLINE readInt16be #-}
 
 -- | Read 4 bytes as a big-endian signed Integral
-readInt32be :: (I.Nullable s, LL.ListLike s Word8, Functor m, Monad m, Integral a)
+readInt32be :: (LL.ListLike s Word8, Functor m, Monad m, Integral a)
             => Iteratee s m a
 readInt32be = fromIntegral . u32_to_s32 <$> I.endianRead4 I.MSB
     where
@@ -79,7 +79,7 @@ readInt32be = fromIntegral . u32_to_s32 <$> I.endianRead4 I.MSB
 {-# INLINE readInt32be #-}
 
 -- | Read 8 bytes as a big-endian signed Integral
-readInt64be :: (I.Nullable s, LL.ListLike s Word8, Functor m, Monad m, Integral a)
+readInt64be :: (LL.ListLike s Word8, Functor m, Monad m, Integral a)
             => Iteratee s m a
 readInt64be = fromIntegral . u64_to_s64 <$> I.endianRead8 I.MSB
     where
@@ -88,25 +88,25 @@ readInt64be = fromIntegral . u64_to_s64 <$> I.endianRead8 I.MSB
 {-# INLINE readInt64be #-}
 
 -- | Read 1 byte as an unsigned Integral
-readWord8 :: (I.Nullable s, LL.ListLike s Word8, Functor m, Monad m, Integral a)
+readWord8 :: (LL.ListLike s Word8, Functor m, Monad m, Integral a)
           => Iteratee s m a
 readWord8 = fromIntegral <$> I.head
 {-# INLINE readWord8 #-}
 
 -- | Read 2 bytes as a big-endian unsigned Integral
-readWord16be :: (I.Nullable s, LL.ListLike s Word8, Functor m, Monad m, Integral a)
+readWord16be :: (LL.ListLike s Word8, Functor m, Monad m, Integral a)
              => Iteratee s m a
 readWord16be = fromIntegral <$> I.endianRead2 I.MSB
 {-# INLINE readWord16be #-}
 
 -- | Read 4 bytes as a big-endian unsigned Integral
-readWord32be :: (I.Nullable s, LL.ListLike s Word8, Functor m, Monad m, Integral a)
+readWord32be :: (LL.ListLike s Word8, Functor m, Monad m, Integral a)
               => Iteratee s m a
 readWord32be = fromIntegral <$> I.endianRead4 I.MSB
 {-# INLINE readWord32be #-}
 
 -- | Read 8 bytes as a big-endian unsigned Integral
-readWord64be :: (I.Nullable s, LL.ListLike s Word8, Functor m, Monad m, Integral a)
+readWord64be :: (LL.ListLike s Word8, Functor m, Monad m, Integral a)
              => Iteratee s m a
 readWord64be = fromIntegral <$> I.endianRead8 I.MSB
 {-# INLINE readWord64be #-}
@@ -114,7 +114,7 @@ readWord64be = fromIntegral <$> I.endianRead8 I.MSB
 -- | Read a variable-length-coded Integer.
 -- For details of the variable-length coding format, see
 -- "Data.ZoomCache.Numeric.Int".
-readIntegerVLC :: (I.Nullable s, LL.ListLike s Word8, Functor m, Monad m)
+readIntegerVLC :: (LL.ListLike s Word8, Functor m, Monad m)
                => Iteratee s m Integer
 readIntegerVLC = do
     x0 <- I.head
@@ -125,7 +125,7 @@ readIntegerVLC = do
         then return . sign $ x1
         else sign <$> readVLC 6 x1
     where
-        readVLC :: (I.Nullable s, LL.ListLike s Word8, Functor m, Monad m)
+        readVLC :: (LL.ListLike s Word8, Functor m, Monad m)
                 => Int -> Integer -> Iteratee s m Integer
         readVLC n x0 = do
             x <- I.head
@@ -136,7 +136,7 @@ readIntegerVLC = do
                 else readVLC (n+7) x1
 
 -- | Read 4 bytes as a big-endian Float
-readFloat32be :: (I.Nullable s, LL.ListLike s Word8, Functor m, Monad m)
+readFloat32be :: (LL.ListLike s Word8, Functor m, Monad m)
                => Iteratee s m Float
 readFloat32be = do
     n <- I.endianRead4 I.MSB
@@ -144,7 +144,7 @@ readFloat32be = do
 {-# INLINE readFloat32be #-}
 
 -- | Read 8 bytes as a big-endian Double
-readDouble64be :: (I.Nullable s, LL.ListLike s Word8, Functor m, Monad m)
+readDouble64be :: (LL.ListLike s Word8, Functor m, Monad m)
                => Iteratee s m Double
 readDouble64be = do
     n <- I.endianRead8 I.MSB
@@ -153,7 +153,7 @@ readDouble64be = do
 
 -- | Read 16 bytes as a big-endian Rational, encoded as an 8 byte
 -- big endian numerator followed by an 8 byte big endian denominator.
-readRational64be :: (I.Nullable s, LL.ListLike s Word8, Functor m, Monad m)
+readRational64be :: (LL.ListLike s Word8, Functor m, Monad m)
                  => Iteratee s m Rational
 readRational64be = do
     (num :: Integer) <- readInt64be

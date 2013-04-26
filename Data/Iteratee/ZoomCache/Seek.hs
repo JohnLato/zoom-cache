@@ -32,14 +32,14 @@ import Data.ZoomCache.Types
 
 ----------------------------------------------------------------------
 
-seekTimeStamp :: (LL.ListLike s el, I.Nullable s, I.NullPoint s, Timestampable el, Monad m)
+seekTimeStamp :: (LL.ListLike s el, Timestampable el, Monad m)
               => CacheFile -> Maybe TimeStamp -> Iteratee s m ()
 seekTimeStamp _  Nothing   = return ()
 seekTimeStamp cf (Just ts) = do
     I.seek (nearOffset cf ts)
     dropWhileB (before (Just ts))
 
-seekUTCTime :: (LL.ListLike s el, I.Nullable s, I.NullPoint s, UTCTimestampable el, Monad m)
+seekUTCTime :: (LL.ListLike s el, UTCTimestampable el, Monad m)
             => Maybe UTCTime -> Iteratee s m ()
 seekUTCTime uts = do
     I.seek 0
@@ -54,22 +54,21 @@ nearOffset cf (TS ts)
         ms :: Int
         ms = floor . (* 1000.0) $ ts
 
--- |Skip all elements while the predicate is true, but also return the last false element
---
--- The analogue of @List.dropWhile@
+-- |Skip all elements while the predicate is true, but also return the last true element
 dropWhileB :: (Monad m, LL.ListLike s el) => (el -> Bool) -> I.Iteratee s m ()
-dropWhileB p = I.liftI step
+dropWhileB p = I.icontP step
   where
+    step I.NoData    = I.continueP step
     step (I.Chunk str)
-      | LL.null left = I.liftI step
-      | otherwise    = I.idone () (I.Chunk left)
+      | LL.null left = I.continueP step
+      | otherwise    = I.ContDone () (I.Chunk left)
       where
         left = llDropWhileB p str
-    step stream      = I.idone () stream
+    step s@I.EOF{}   = I.ContDone () s
 {-# INLINE dropWhileB #-}
 
-{- | Drops all elements form the start of the list that satisfy the
-       function. -}
+{- | Drops all elements from the start of the list that satisfy the
+       function, except for the last one. -}
 llDropWhileB :: LL.ListLike full item => (item -> Bool) -> full -> full
 llDropWhileB = dw LL.empty
     where

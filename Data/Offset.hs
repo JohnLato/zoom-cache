@@ -12,8 +12,6 @@ module Data.Offset (
 ) where
 
 import Data.Monoid
-import Data.Nullable
-import Data.NullPoint
 import Data.Word
 import qualified Data.ListLike.FoldableLL as LL
 import qualified Data.ListLike as LL
@@ -22,12 +20,6 @@ import System.Posix.Types (FileOffset)
 ----------------------------------------------------------------------
 
 data Offset a = Offset {-# UNPACK #-}!FileOffset !a
-
-instance Nullable a => Nullable (Offset a) where
-    nullC (Offset _ bs) = nullC bs
-
-instance NullPoint a => NullPoint (Offset a) where
-    empty = Offset 0 empty
 
 instance Monoid a => Monoid (Offset a) where
     mempty = Offset 0 mempty

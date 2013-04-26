@@ -89,6 +89,7 @@ import Data.Iteratee (Iteratee)
 import qualified Data.Iteratee as I
 import qualified Data.Iteratee.Offset as OffI
 import Data.Iteratee.ZLib
+import qualified Data.ListLike as LL
 import Data.Maybe
 import Data.Ratio
 import Data.Time
@@ -366,7 +367,7 @@ iterBlock cf = {-# SCC "iterBlock" #-} do
 enumBlock :: (Functor m, MonadIO m)
           => CacheFile
           -> I.Enumeratee (Offset ByteString) [Offset Block] m a
-enumBlock = I.unfoldConvStreamCheck I.eneeCheckIfDonePass iterBlock
+enumBlock = I.unfoldConvStream iterBlock
 {-# INLINE enumBlock #-}
 
 -- | A version of enumBlock which won't fail with an EofException if the last
@@ -374,15 +375,14 @@ enumBlock = I.unfoldConvStreamCheck I.eneeCheckIfDonePass iterBlock
 enumBlockIncomplete :: (Functor m, MonadIO m) =>
                         CacheFile
                      -> I.Enumeratee (Offset ByteString) [Offset Block] m a
-enumBlockIncomplete = I.unfoldConvStreamCheck I.eneeCheckIfDonePass $
-                      catchAndIgnoreAcc iterBlock
+enumBlockIncomplete = I.unfoldConvStream $ catchAndIgnoreAcc iterBlock
 
-catchAndIgnoreAcc :: (Monad m, I.NullPoint a, I.Nullable s) =>
+catchAndIgnoreAcc :: (Monad m, LL.ListLike a el) =>
                      (acc -> Iteratee s m (acc, a)) -> acc
                   -> Iteratee s m (acc, a)
 catchAndIgnoreAcc fi acc = I.checkErr (fi acc) >>= either onErr return
   where
-    onErr _ = return (acc, I.empty)
+    onErr _ = return (acc, LL.empty)
 
 ------------------------------------------------------------
 

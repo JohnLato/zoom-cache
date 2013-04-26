@@ -13,17 +13,17 @@ import Control.Arrow (second)
 import qualified Data.ByteString as B
 import Data.ByteString (ByteString)
 import Data.Iteratee.Iteratee
+import Data.Iteratee.Base.ReadableChunk (ReadableChunk (..))
 import Data.Iteratee.Binary()
 import Data.Offset (Offset(..))
 
 import Control.Concurrent (yield)
-import Control.Exception
+import Control.Exception as Ex
 import Control.Monad
 import Control.Monad.CatchIO as CIO
 import Control.Monad.IO.Class
 
 import Foreign.Ptr
-import Foreign.Marshal.Alloc
 
 import System.IO (SeekMode(..))
 
@@ -34,21 +34,10 @@ import System.Posix hiding (FileOffset)
 
 import Foreign.C
 
-myfdRead :: Fd -> Ptr CChar -> ByteCount -> IO (Either Errno ByteCount)
-myfdRead (Fd fd) ptr n = do
-  n' <- cRead fd ptr n
-  if n' == -1 then liftM Left getErrno
-     else return . Right . fromIntegral $ n'
-
-foreign import ccall unsafe "unistd.h read" cRead
-  :: CInt -> Ptr CChar -> CSize -> IO CInt
-
--- |The following fseek procedure throws no exceptions.
-myfdSeek:: Fd -> SeekMode -> FileOffset -> IO (Either Errno FileOffset)
-myfdSeek (Fd fd) mode off = do
-  n' <- cLSeek fd off (mode2Int mode)
-  if n' == -1 then liftM Left getErrno
-     else return . Right  $ n'
+-- |The following fseek procedure may throw an exception :(
+myfdSeek:: Fd -> SeekMode -> FileOffset -> IO FileOffset
+myfdSeek (Fd fd) mode off =
+   throwErrnoIfMinus1 "zoom-cache:myfdseek" $ cLSeek fd off (mode2Int mode)
  where mode2Int :: SeekMode -> CInt     -- From GHC source
        mode2Int AbsoluteSeek = 0
        mode2Int RelativeSeek = 1
@@ -67,34 +56,27 @@ defaultBufSize = 1024
 ----------------------------------------------------------------------
 
 makefdCallback ::
-  (MonadIO m) =>
-  Ptr el
-  -> ByteCount
+  (MonadIO m)
+  => ByteCount
   -> Fd
-  -> st
-  -> m (Either SomeException ((Bool, st), B.ByteString))
-makefdCallback p bufsize fd st = do
-  n <- liftIO $ myfdRead fd (castPtr p) bufsize
-  case n of
-    Left  _  -> return $ Left (error "myfdRead failed")
-    Right 0  -> liftIO yield >> return (Right ((False, st), empty))
-    Right n' -> liftM (\s -> Right ((True, st), s)) $
-                  readFromPtr p (fromIntegral n')
-    where
-        readFromPtr buf l = liftIO $ B.packCStringLen (castPtr buf, l)
+  -> Callback st m B.ByteString
+makefdCallback bufsize fd st = do
+  let fillFn p = fmap fromIntegral . fdReadBuf fd (castPtr p) . fromIntegral
+  (s,numCopied) <- liftIO $ fillFromCallback (fromIntegral bufsize) fillFn
+  case numCopied of
+    0   -> liftIO yield >> return ((Finished, st), s)
+    _n  -> return ((HasMore, st), s)
+{-# INLINABLE makefdCallback #-}
+
 
 makefdCallbackOBS ::
   (MonadIO m) =>
-  Ptr el
-  -> ByteCount
+  ByteCount
   -> Fd
-  -> st
-  -> m (Either SomeException ((Bool, st), Offset ByteString))
-makefdCallbackOBS p bufsize fd st = do
+  -> Callback st m (Offset B.ByteString)
+makefdCallbackOBS bufsize fd st = do
   o <- liftIO $ myfdSeek fd RelativeSeek 0
-  case o of
-      Left  _  -> return $ Left (error "myfdSeek failed")
-      Right o' -> liftM (fmap (second (Offset o'))) (makefdCallback p bufsize fd st)
+  liftM (second (Offset o)) (makefdCallback bufsize fd st)
 
 -- |A variant of enumFd that catches exceptions raised by the @Iteratee@.
 enumFdCatchOBS
@@ -105,9 +87,7 @@ enumFdCatchOBS
     -> Enumerator (Offset ByteString) m a
 enumFdCatchOBS bs fd handler iter =
   let bufsize = bs
-  in CIO.bracket (liftIO $ mallocBytes bufsize)
-                 (liftIO . free)
-                 (\p -> enumFromCallbackCatch (makefdCallbackOBS p (fromIntegral bufsize) fd) handler () iter)
+  in enumFromCallbackCatch (makefdCallbackOBS (fromIntegral bufsize) fd) handler () iter
 
 -- |The enumerator of a POSIX File Descriptor: a variation of @enumFd@ that
 -- supports RandomIO (seek requests).
@@ -120,9 +100,9 @@ enumFdRandomOBS bs fd iter = enumFdCatchOBS bs fd handler iter
   where
     handler (SeekException off) =
       liftM (either
-             (const . Just $ enStrExc "Error seeking within file descriptor")
+             (\e -> let _ = e :: SomeException in Just $ enStrExc $ "Error seeking within file descriptor: " ++ show e)
              (const Nothing))
-            . liftIO . myfdSeek fd AbsoluteSeek $ fromIntegral off
+            . liftIO . Ex.try $ myfdSeek fd AbsoluteSeek $ fromIntegral off
 
 fileDriverOBS
   :: (MonadCatchIO m) =>
